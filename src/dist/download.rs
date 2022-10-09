@@ -19,7 +19,7 @@ pub struct DownloadCfg<'a> {
     pub dist_root: &'a str,
     pub temp_cfg: &'a temp::Cfg,
     pub download_dir: &'a PathBuf,
-    pub notify_handler: &'a dyn Fn(Notification<'_>),
+    // pub notify_handler: &'a dyn Fn(Notification<'_>),
     pub pgp_keys: &'a [PgpPublicKey],
 }
 
@@ -40,22 +40,23 @@ impl<'a> DownloadCfg<'a> {
     /// Partial downloads are stored in `self.download_dir`, keyed by hash. If the
     /// target file already exists, then the hash is checked and it is returned
     /// immediately without re-downloading.
-    pub(crate) fn download(&self, url: &Url, hash: &str) -> Result<File> {
-        utils::ensure_dir_exists(
-            "Download Directory",
-            self.download_dir,
-            &self.notify_handler,
-        )?;
+    pub(crate) fn download(
+        &self,
+        url: &Url,
+        hash: &str,
+        notify_handler: &dyn Fn(Notification<'_>),
+    ) -> Result<File> {
+        utils::ensure_dir_exists("Download Directory", self.download_dir, &notify_handler)?;
         let target_file = self.download_dir.join(Path::new(hash));
 
         if target_file.exists() {
-            let cached_result = file_hash(&target_file, self.notify_handler)?;
+            let cached_result = file_hash(&target_file, notify_handler)?;
             if hash == cached_result {
-                (self.notify_handler)(Notification::FileAlreadyDownloaded);
-                (self.notify_handler)(Notification::ChecksumValid(url.as_ref()));
+                (notify_handler)(Notification::FileAlreadyDownloaded);
+                (notify_handler)(Notification::ChecksumValid(url.as_ref()));
                 return Ok(File { path: target_file });
             } else {
-                (self.notify_handler)(Notification::CachedFileChecksumFailed);
+                (notify_handler)(Notification::CachedFileChecksumFailed);
                 fs::remove_file(&target_file).context("cleaning up previous download")?;
             }
         }
@@ -78,7 +79,7 @@ impl<'a> DownloadCfg<'a> {
             &partial_file_path,
             Some(&mut hasher),
             true,
-            &|n| (self.notify_handler)(n.into()),
+            &|n| (notify_handler)(n.into()),
         ) {
             let err = Err(e);
             if partial_file_existed {
@@ -104,13 +105,13 @@ impl<'a> DownloadCfg<'a> {
                 .into())
             }
         } else {
-            (self.notify_handler)(Notification::ChecksumValid(url.as_ref()));
+            (notify_handler)(Notification::ChecksumValid(url.as_ref()));
 
             utils::rename_file(
                 "downloaded",
                 &partial_file_path,
                 &target_file,
-                self.notify_handler,
+                notify_handler,
             )?;
             Ok(File { path: target_file })
         }
@@ -126,36 +127,45 @@ impl<'a> DownloadCfg<'a> {
         Ok(())
     }
 
-    fn download_hash(&self, url: &str) -> Result<String> {
+    fn download_hash(
+        &self,
+        url: &str,
+        notify_handler: &dyn Fn(Notification<'_>),
+    ) -> Result<String> {
         let hash_url = utils::parse_url(&(url.to_owned() + ".sha256"))?;
         let hash_file = self.temp_cfg.new_file()?;
 
-        utils::download_file(&hash_url, &hash_file, None, &|n| {
-            (self.notify_handler)(n.into())
-        })?;
+        utils::download_file(&hash_url, &hash_file, None, &|n| (notify_handler)(n.into()))?;
 
         utils::read_file("hash", &hash_file).map(|s| s[0..64].to_owned())
     }
 
-    fn download_signature(&self, url: &str) -> Result<String> {
+    fn download_signature(
+        &self,
+        url: &str,
+        notify_handler: &dyn Fn(Notification<'_>),
+    ) -> Result<String> {
         let sig_url = utils::parse_url(&(url.to_owned() + ".asc"))?;
         let sig_file = self.temp_cfg.new_file()?;
 
-        utils::download_file(&sig_url, &sig_file, None, &|n| {
-            (self.notify_handler)(n.into())
-        })?;
+        utils::download_file(&sig_url, &sig_file, None, &|n| (notify_handler)(n.into()))?;
 
         utils::read_file("signature", &sig_file)
     }
 
-    fn check_signature(&self, url: &str, file: &temp::File<'_>) -> Result<&PgpPublicKey> {
+    fn check_signature(
+        &self,
+        url: &str,
+        file: &temp::File<'_>,
+        notify_handler: &dyn Fn(Notification<'_>),
+    ) -> Result<&PgpPublicKey> {
         assert!(
             !self.pgp_keys.is_empty(),
             "At least the builtin key must be present"
         );
 
         let signature = self
-            .download_signature(url)
+            .download_signature(url, notify_handler)
             .with_context(|| format!("failed to download signature file {}", url))?;
 
         let file_path: &Path = file;
@@ -187,8 +197,9 @@ impl<'a> DownloadCfg<'a> {
         url_str: &str,
         update_hash: Option<&Path>,
         ext: &str,
+        notify_handler: &dyn Fn(Notification<'_>),
     ) -> Result<Option<(temp::File<'a>, String)>> {
-        let hash = self.download_hash(url_str)?;
+        let hash = self.download_hash(url_str, notify_handler)?;
         let partial_hash: String = hash.chars().take(UPDATE_HASH_LEN).collect();
 
         if let Some(hash_file) = update_hash {
@@ -199,10 +210,10 @@ impl<'a> DownloadCfg<'a> {
                         return Ok(None);
                     }
                 } else {
-                    (self.notify_handler)(Notification::CantReadUpdateHash(hash_file));
+                    (notify_handler)(Notification::CantReadUpdateHash(hash_file));
                 }
             } else {
-                (self.notify_handler)(Notification::NoUpdateHash(hash_file));
+                (notify_handler)(Notification::NoUpdateHash(hash_file));
             }
         }
 
@@ -211,7 +222,7 @@ impl<'a> DownloadCfg<'a> {
 
         let mut hasher = Sha256::new();
         utils::download_file(&url, &file, Some(&mut hasher), &|n| {
-            (self.notify_handler)(n.into())
+            (notify_handler)(n.into())
         })?;
         let actual_hash = format!("{:x}", hasher.finalize());
 
@@ -224,14 +235,14 @@ impl<'a> DownloadCfg<'a> {
             }
             .into());
         } else {
-            (self.notify_handler)(Notification::ChecksumValid(url_str));
+            (notify_handler)(Notification::ChecksumValid(url_str));
         }
 
         // No signatures for tarballs for now.
         if !url_str.ends_with(".tar.gz") && !url_str.ends_with(".tar.xz") {
-            match self.check_signature(url_str, &file) {
-                Ok(key) => (self.notify_handler)(Notification::SignatureValid(url_str, key)),
-                Err(_) => (self.notify_handler)(Notification::SignatureInvalid(url_str)),
+            match self.check_signature(url_str, &file, notify_handler) {
+                Ok(key) => (notify_handler)(Notification::SignatureValid(url_str, key)),
+                Err(_) => (notify_handler)(Notification::SignatureInvalid(url_str)),
             }
         }
 

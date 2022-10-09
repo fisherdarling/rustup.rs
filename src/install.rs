@@ -132,6 +132,7 @@ impl<'a> InstallMethod<'a> {
                     old_date,
                     components,
                     targets,
+                    notify_handler,
                 )?;
 
                 if let Some(hash) = maybe_new_hash {

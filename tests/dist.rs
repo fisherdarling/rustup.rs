@@ -332,6 +332,9 @@ fn rename_component() {
                 download_cfg,
                 temp_cfg,
                 false,
+                &|event| {
+                    println!("{}", event);
+                },
             )
             .unwrap();
             assert!(utils::path_exists(&prefix.path().join("bin/bonus")));
@@ -346,6 +349,9 @@ fn rename_component() {
                 download_cfg,
                 temp_cfg,
                 false,
+                &|event| {
+                    println!("{}", event);
+                },
             )
             .unwrap();
             assert!(utils::path_exists(&prefix.path().join("bin/bonus")));
@@ -397,6 +403,9 @@ fn rename_component_new() {
                 download_cfg,
                 temp_cfg,
                 false,
+                &|event| {
+                    println!("{}", event);
+                },
             )
             .unwrap();
             // Neither bonus nor bobo are installed at this point.
@@ -414,6 +423,9 @@ fn rename_component_new() {
                 download_cfg,
                 temp_cfg,
                 false,
+                &|event| {
+                    println!("{}", event);
+                },
             )
             .unwrap();
             // As a result `bin/bonus` is present but not `bin/bobo` which we'd
@@ -439,6 +451,7 @@ fn update_from_dist(
     download_cfg: &DownloadCfg<'_>,
     temp_cfg: &temp::Cfg,
     force: bool,
+    notify_handler: &dyn Fn(Notification<'_>),
 ) -> Result<UpdateStatus> {
     // Download the dist manifest and place it into the installation prefix
     let manifest_url = make_manifest_url(dist_server, toolchain)?;
@@ -466,7 +479,7 @@ fn update_from_dist(
         changes,
         force,
         download_cfg,
-        download_cfg.notify_handler,
+        notify_handler,
         &toolchain.manifest_name(),
         true,
     )
@@ -552,9 +565,6 @@ fn setup_from_dist_server(
         dist_root: "phony",
         temp_cfg: &temp_cfg,
         download_dir: &prefix.path().to_owned().join("downloads"),
-        notify_handler: &|event| {
-            println!("{}", event);
-        },
         pgp_keys: &[PgpPublicKey::FromEnvironment(
             "test-key".into(),
             get_public_key(),
@@ -587,6 +597,9 @@ fn initial_install(comps: Compressions) {
             download_cfg,
             temp_cfg,
             false,
+            &|event| {
+                println!("{}", event);
+            },
         )
         .unwrap();
 
@@ -626,6 +639,9 @@ fn test_uninstall() {
             download_cfg,
             temp_cfg,
             false,
+            &|event| {
+                println!("{}", event);
+            },
         )
         .unwrap();
         uninstall(toolchain, prefix, temp_cfg, &|_| ()).unwrap();
@@ -651,6 +667,9 @@ fn uninstall_removes_config_file() {
             download_cfg,
             temp_cfg,
             false,
+            &|event| {
+                println!("{}", event);
+            },
         )
         .unwrap();
         assert!(utils::path_exists(
@@ -680,6 +699,9 @@ fn upgrade() {
             download_cfg,
             temp_cfg,
             false,
+            &|event| {
+                println!("{}", event);
+            },
         )
         .unwrap();
         assert_eq!(
@@ -696,6 +718,9 @@ fn upgrade() {
             download_cfg,
             temp_cfg,
             false,
+            &|event| {
+                println!("{}", event);
+            },
         )
         .unwrap();
         assert_eq!(
@@ -758,6 +783,9 @@ fn unavailable_component() {
                 download_cfg,
                 temp_cfg,
                 false,
+                &|event| {
+                    println!("{}", event);
+                },
             )
             .unwrap();
             assert!(utils::path_exists(&prefix.path().join("bin/bonus")));
@@ -773,6 +801,9 @@ fn unavailable_component() {
                 download_cfg,
                 temp_cfg,
                 false,
+                &|event| {
+                    println!("{}", event);
+                },
             )
             .unwrap_err();
             match err.downcast::<RustupError>() {
@@ -819,6 +850,9 @@ fn unavailable_component_from_profile() {
                 download_cfg,
                 temp_cfg,
                 false,
+                &|event| {
+                    println!("{}", event);
+                },
             )
             .unwrap();
             assert!(utils::path_exists(&prefix.path().join("bin/rustc")));
@@ -834,6 +868,9 @@ fn unavailable_component_from_profile() {
                 download_cfg,
                 temp_cfg,
                 false,
+                &|event| {
+                    println!("{}", event);
+                },
             )
             .unwrap_err();
             match err.downcast::<RustupError>() {
@@ -852,6 +889,9 @@ fn unavailable_component_from_profile() {
                 download_cfg,
                 temp_cfg,
                 true,
+                &|event| {
+                    println!("{}", event);
+                },
             )
             .unwrap();
         },
@@ -899,6 +939,9 @@ fn removed_component() {
                 download_cfg,
                 temp_cfg,
                 false,
+                &|event| {
+                    println!("{}", event);
+                },
             )
             .unwrap();
             assert!(utils::path_exists(&prefix.path().join("bin/bonus")));
@@ -914,6 +957,9 @@ fn removed_component() {
                 download_cfg,
                 temp_cfg,
                 false,
+                &|event| {
+                    println!("{}", event);
+                },
             )
             .unwrap_err();
             match err.downcast::<RustupError>() {
@@ -972,6 +1018,9 @@ fn unavailable_components_is_target() {
                 download_cfg,
                 temp_cfg,
                 false,
+                &|event| {
+                    println!("{}", event);
+                },
             )
             .unwrap();
 
@@ -993,6 +1042,9 @@ fn unavailable_components_is_target() {
                 download_cfg,
                 temp_cfg,
                 false,
+                &|event| {
+                    println!("{}", event);
+                },
             )
             .unwrap_err();
             match err.downcast::<RustupError>() {
@@ -1056,6 +1108,9 @@ fn unavailable_components_with_same_target() {
                 download_cfg,
                 temp_cfg,
                 false,
+                &|event| {
+                    println!("{}", event);
+                },
             )
             .unwrap();
             assert!(utils::path_exists(&prefix.path().join("bin/rustc")));
@@ -1072,6 +1127,9 @@ fn unavailable_components_with_same_target() {
                 download_cfg,
                 temp_cfg,
                 false,
+                &|event| {
+                    println!("{}", event);
+                },
             )
             .unwrap_err();
             match err.downcast::<RustupError>() {
@@ -1119,6 +1177,9 @@ fn update_preserves_extensions() {
             download_cfg,
             temp_cfg,
             false,
+            &|event| {
+                println!("{}", event);
+            },
         )
         .unwrap();
 
@@ -1139,6 +1200,9 @@ fn update_preserves_extensions() {
             download_cfg,
             temp_cfg,
             false,
+            &|event| {
+                println!("{}", event);
+            },
         )
         .unwrap();
 
@@ -1167,6 +1231,9 @@ fn update_makes_no_changes_for_identical_manifest() {
             download_cfg,
             temp_cfg,
             false,
+            &|event| {
+                println!("{}", event);
+            },
         )
         .unwrap();
         assert_eq!(status, UpdateStatus::Changed);
@@ -1179,6 +1246,9 @@ fn update_makes_no_changes_for_identical_manifest() {
             download_cfg,
             temp_cfg,
             false,
+            &|event| {
+                println!("{}", event);
+            },
         )
         .unwrap();
         assert_eq!(status, UpdateStatus::Unchanged);
@@ -1214,6 +1284,9 @@ fn add_extensions_for_initial_install() {
             download_cfg,
             temp_cfg,
             false,
+            &|event| {
+                println!("{}", event);
+            },
         )
         .unwrap();
         assert!(utils::path_exists(
@@ -1241,6 +1314,9 @@ fn add_extensions_for_same_manifest() {
             download_cfg,
             temp_cfg,
             false,
+            &|event| {
+                println!("{}", event);
+            },
         )
         .unwrap();
 
@@ -1266,6 +1342,9 @@ fn add_extensions_for_same_manifest() {
             download_cfg,
             temp_cfg,
             false,
+            &|event| {
+                println!("{}", event);
+            },
         )
         .unwrap();
 
@@ -1296,6 +1375,9 @@ fn add_extensions_for_upgrade() {
             download_cfg,
             temp_cfg,
             false,
+            &|event| {
+                println!("{}", event);
+            },
         )
         .unwrap();
 
@@ -1323,6 +1405,9 @@ fn add_extensions_for_upgrade() {
             download_cfg,
             temp_cfg,
             false,
+            &|event| {
+                println!("{}", event);
+            },
         )
         .unwrap();
 
@@ -1358,6 +1443,9 @@ fn add_extension_not_in_manifest() {
             download_cfg,
             temp_cfg,
             false,
+            &|event| {
+                println!("{}", event);
+            },
         )
         .unwrap();
     });
@@ -1386,6 +1474,9 @@ fn add_extension_that_is_required_component() {
             download_cfg,
             temp_cfg,
             false,
+            &|event| {
+                println!("{}", event);
+            },
         )
         .unwrap();
     });
@@ -1415,6 +1506,9 @@ fn add_extensions_does_not_remove_other_components() {
             download_cfg,
             temp_cfg,
             false,
+            &|event| {
+                println!("{}", event);
+            },
         )
         .unwrap();
 
@@ -1433,6 +1527,9 @@ fn add_extensions_does_not_remove_other_components() {
             download_cfg,
             temp_cfg,
             false,
+            &|event| {
+                println!("{}", event);
+            },
         )
         .unwrap();
 
@@ -1464,6 +1561,9 @@ fn remove_extensions_for_initial_install() {
             download_cfg,
             temp_cfg,
             false,
+            &|event| {
+                println!("{}", event);
+            },
         )
         .unwrap();
     });
@@ -1498,6 +1598,9 @@ fn remove_extensions_for_same_manifest() {
             download_cfg,
             temp_cfg,
             false,
+            &|event| {
+                println!("{}", event);
+            },
         )
         .unwrap();
 
@@ -1516,6 +1619,9 @@ fn remove_extensions_for_same_manifest() {
             download_cfg,
             temp_cfg,
             false,
+            &|event| {
+                println!("{}", event);
+            },
         )
         .unwrap();
 
@@ -1559,6 +1665,9 @@ fn remove_extensions_for_upgrade() {
             download_cfg,
             temp_cfg,
             false,
+            &|event| {
+                println!("{}", event);
+            },
         )
         .unwrap();
 
@@ -1579,6 +1688,9 @@ fn remove_extensions_for_upgrade() {
             download_cfg,
             temp_cfg,
             false,
+            &|event| {
+                println!("{}", event);
+            },
         )
         .unwrap();
 
@@ -1610,6 +1722,9 @@ fn remove_extension_not_in_manifest() {
             download_cfg,
             temp_cfg,
             false,
+            &|event| {
+                println!("{}", event);
+            },
         )
         .unwrap();
 
@@ -1630,6 +1745,9 @@ fn remove_extension_not_in_manifest() {
             download_cfg,
             temp_cfg,
             false,
+            &|event| {
+                println!("{}", event);
+            },
         )
         .unwrap();
     });
@@ -1675,6 +1793,9 @@ fn remove_extension_not_in_manifest_but_is_already_installed() {
                 download_cfg,
                 temp_cfg,
                 false,
+                &|event| {
+                    println!("{}", event);
+                },
             )
             .unwrap();
             assert!(utils::path_exists(&prefix.path().join("bin/bonus")));
@@ -1695,6 +1816,9 @@ fn remove_extension_not_in_manifest_but_is_already_installed() {
                 download_cfg,
                 temp_cfg,
                 false,
+                &|event| {
+                    println!("{}", event);
+                },
             )
             .unwrap();
         },
@@ -1718,6 +1842,9 @@ fn remove_extension_that_is_required_component() {
             download_cfg,
             temp_cfg,
             false,
+            &|event| {
+                println!("{}", event);
+            },
         )
         .unwrap();
 
@@ -1736,6 +1863,9 @@ fn remove_extension_that_is_required_component() {
             download_cfg,
             temp_cfg,
             false,
+            &|event| {
+                println!("{}", event);
+            },
         )
         .unwrap();
     });
@@ -1758,6 +1888,9 @@ fn remove_extension_not_installed() {
             download_cfg,
             temp_cfg,
             false,
+            &|event| {
+                println!("{}", event);
+            },
         )
         .unwrap();
 
@@ -1776,6 +1909,9 @@ fn remove_extension_not_installed() {
             download_cfg,
             temp_cfg,
             false,
+            &|event| {
+                println!("{}", event);
+            },
         )
         .unwrap();
     });
@@ -1807,6 +1943,9 @@ fn remove_extensions_does_not_remove_other_components() {
             download_cfg,
             temp_cfg,
             false,
+            &|event| {
+                println!("{}", event);
+            },
         )
         .unwrap();
 
@@ -1825,6 +1964,9 @@ fn remove_extensions_does_not_remove_other_components() {
             download_cfg,
             temp_cfg,
             false,
+            &|event| {
+                println!("{}", event);
+            },
         )
         .unwrap();
 
@@ -1856,6 +1998,9 @@ fn add_and_remove_for_upgrade() {
             download_cfg,
             temp_cfg,
             false,
+            &|event| {
+                println!("{}", event);
+            },
         )
         .unwrap();
 
@@ -1882,6 +2027,9 @@ fn add_and_remove_for_upgrade() {
             download_cfg,
             temp_cfg,
             false,
+            &|event| {
+                println!("{}", event);
+            },
         )
         .unwrap();
 
@@ -1916,6 +2064,9 @@ fn add_and_remove() {
             download_cfg,
             temp_cfg,
             false,
+            &|event| {
+                println!("{}", event);
+            },
         )
         .unwrap();
 
@@ -1940,6 +2091,9 @@ fn add_and_remove() {
             download_cfg,
             temp_cfg,
             false,
+            &|event| {
+                println!("{}", event);
+            },
         )
         .unwrap();
 
@@ -1968,6 +2122,9 @@ fn add_and_remove_same_component() {
             download_cfg,
             temp_cfg,
             false,
+            &|event| {
+                println!("{}", event);
+            },
         )
         .unwrap();
 
@@ -1992,6 +2149,9 @@ fn add_and_remove_same_component() {
             download_cfg,
             temp_cfg,
             false,
+            &|event| {
+                println!("{}", event);
+            },
         )
         .expect_err("can't both add and remove components");
     });
@@ -2017,6 +2177,9 @@ fn bad_component_hash() {
             download_cfg,
             temp_cfg,
             false,
+            &|event| {
+                println!("{}", event);
+            },
         )
         .unwrap_err();
 
@@ -2047,6 +2210,9 @@ fn unable_to_download_component() {
             download_cfg,
             temp_cfg,
             false,
+            &|event| {
+                println!("{}", event);
+            },
         )
         .unwrap_err();
 
@@ -2088,11 +2254,6 @@ fn reuse_downloaded_file() {
             dist_root: download_cfg.dist_root,
             temp_cfg: download_cfg.temp_cfg,
             download_dir: download_cfg.download_dir,
-            notify_handler: &|n| {
-                if let Notification::FileAlreadyDownloaded = n {
-                    reuse_notification_fired.set(true);
-                }
-            },
             pgp_keys: &[PgpPublicKey::FromEnvironment(
                 "test-key".into(),
                 get_public_key(),
@@ -2108,6 +2269,11 @@ fn reuse_downloaded_file() {
             &download_cfg,
             temp_cfg,
             false,
+            &|n| {
+                if let Notification::FileAlreadyDownloaded = n {
+                    reuse_notification_fired.set(true);
+                }
+            },
         )
         .unwrap_err();
         assert!(!reuse_notification_fired.get());
@@ -2123,6 +2289,9 @@ fn reuse_downloaded_file() {
             &download_cfg,
             temp_cfg,
             false,
+            &|event| {
+                println!("{}", event);
+            },
         )
         .unwrap();
 
@@ -2159,11 +2328,6 @@ fn checks_files_hashes_before_reuse() {
             dist_root: download_cfg.dist_root,
             temp_cfg: download_cfg.temp_cfg,
             download_dir: download_cfg.download_dir,
-            notify_handler: &|n| {
-                if let Notification::CachedFileChecksumFailed = n {
-                    noticed_bad_checksum.set(true);
-                }
-            },
             pgp_keys: &[PgpPublicKey::FromEnvironment(
                 "test-key".into(),
                 get_public_key(),
@@ -2179,6 +2343,11 @@ fn checks_files_hashes_before_reuse() {
             &download_cfg,
             temp_cfg,
             false,
+            &|n| {
+                if let Notification::CachedFileChecksumFailed = n {
+                    noticed_bad_checksum.set(true);
+                }
+            },
         )
         .unwrap();
 
@@ -2226,6 +2395,9 @@ fn handle_corrupt_partial_downloads() {
             download_cfg,
             temp_cfg,
             false,
+            &|event| {
+                println!("{}", event);
+            },
         )
         .unwrap();
 

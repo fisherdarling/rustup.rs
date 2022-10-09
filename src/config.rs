@@ -353,15 +353,11 @@ impl Cfg {
     }
 
     /// construct a download configuration
-    pub(crate) fn download_cfg<'a>(
-        &'a self,
-        notify_handler: &'a dyn Fn(crate::dist::Notification<'_>),
-    ) -> DownloadCfg<'a> {
+    pub(crate) fn download_cfg<'a>(&'a self) -> DownloadCfg<'a> {
         DownloadCfg {
             dist_root: &self.dist_root_url,
             temp_cfg: &self.temp_cfg,
             download_dir: &self.download_dir,
-            notify_handler,
             pgp_keys: self.get_pgp_keys(),
         }
     }

@@ -574,7 +574,7 @@ impl<'a> DistributableToolchain<'a> {
                 changes,
                 false,
                 &self.download_cfg(),
-                &self.download_cfg().notify_handler,
+                &self.0.dist_handler,
                 &desc.toolchain.manifest_name(),
                 false,
             )?;
@@ -643,7 +643,7 @@ impl<'a> DistributableToolchain<'a> {
     }
 
     fn download_cfg(&self) -> DownloadCfg<'_> {
-        self.0.cfg.download_cfg(&*self.0.dist_handler)
+        self.0.cfg.download_cfg()
     }
 
     // Installed only?
@@ -849,7 +849,7 @@ impl<'a> DistributableToolchain<'a> {
                 changes,
                 false,
                 &self.download_cfg(),
-                &self.download_cfg().notify_handler,
+                &self.0.dist_handler,
                 &desc.toolchain.manifest_name(),
                 false,
             )?;
@@ -871,6 +871,7 @@ impl<'a> DistributableToolchain<'a> {
             self.download_cfg(),
             Some(&update_hash),
             &self.desc()?,
+            &self.0.dist_handler,
         )? {
             Some((manifest, _)) => Ok(Some(manifest.get_rust_version()?.to_string())),
             None => Ok(None),

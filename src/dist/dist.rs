@@ -664,6 +664,7 @@ pub(crate) fn update_from_dist<'a>(
     old_date: Option<&str>,
     components: &[&str],
     targets: &[&str],
+    notify_handler: &dyn Fn(Notification<'_>),
 ) -> Result<Option<String>> {
     let fresh_install = !prefix.path().exists();
     let hash_exists = update_hash.map(Path::exists).unwrap_or(false);
@@ -671,7 +672,7 @@ pub(crate) fn update_from_dist<'a>(
     // fresh_install means the toolchain isn't present, but hash_exists means there is a stray hash file
     if fresh_install && hash_exists {
         // It's ok to unwrap, because hash have to exist at this point
-        (download.notify_handler)(Notification::StrayHash(update_hash.unwrap()));
+        (notify_handler)(Notification::StrayHash(update_hash.unwrap()));
         std::fs::remove_file(update_hash.unwrap())?;
     }
 
@@ -686,12 +687,13 @@ pub(crate) fn update_from_dist<'a>(
         old_date,
         components,
         targets,
+        notify_handler,
     );
 
     // Don't leave behind an empty / broken installation directory
     if res.is_err() && fresh_install {
         // FIXME Ignoring cascading errors
-        let _ = utils::remove_dir("toolchain", prefix.path(), download.notify_handler);
+        let _ = utils::remove_dir("toolchain", prefix.path(), notify_handler);
     }
 
     res
@@ -708,6 +710,7 @@ fn update_from_dist_<'a>(
     old_date: Option<&str>,
     components: &[&str],
     targets: &[&str],
+    notify_handler: &dyn Fn(Notification<'_>),
 ) -> Result<Option<String>> {
     let mut toolchain = toolchain.clone();
     let mut fetched = String::new();
@@ -763,6 +766,7 @@ fn update_from_dist_<'a>(
             components,
             targets,
             &mut fetched,
+            notify_handler,
         ) {
             Ok(v) => break Ok(v),
             Err(e) => {
@@ -773,7 +777,7 @@ fn update_from_dist_<'a>(
                 let cause = e.downcast_ref::<DistError>();
                 match cause {
                     Some(DistError::ToolchainComponentsMissing(components, manifest, ..)) => {
-                        (download.notify_handler)(Notification::SkippingNightlyMissingComponent(
+                        (notify_handler)(Notification::SkippingNightlyMissingComponent(
                             &toolchain,
                             current_manifest.as_ref().unwrap_or(manifest),
                             components,
@@ -842,12 +846,13 @@ fn try_update_from_dist_<'a>(
     components: &[&str],
     targets: &[&str],
     fetched: &mut String,
+    notify_handler: &dyn Fn(Notification<'_>),
 ) -> Result<Option<String>> {
     let toolchain_str = toolchain.to_string();
     let manifestation = Manifestation::open(prefix.clone(), toolchain.target.clone())?;
 
     // TODO: Add a notification about which manifest version is going to be used
-    (download.notify_handler)(Notification::DownloadingManifest(&toolchain_str));
+    (notify_handler)(Notification::DownloadingManifest(&toolchain_str));
     match dl_v2_manifest(
         download,
         // Even if manifest has not changed, we must continue to install requested components.
@@ -859,9 +864,10 @@ fn try_update_from_dist_<'a>(
             None
         },
         toolchain,
+        notify_handler,
     ) {
         Ok(Some((m, hash))) => {
-            (download.notify_handler)(Notification::DownloadedManifest(
+            (notify_handler)(Notification::DownloadedManifest(
                 &m.date,
                 m.get_rust_version().ok(),
             ));
@@ -917,7 +923,7 @@ fn try_update_from_dist_<'a>(
                 changes,
                 force_update,
                 &download,
-                &download.notify_handler,
+                &notify_handler,
                 &toolchain.manifest_name(),
                 true,
             ) {
@@ -955,7 +961,7 @@ fn try_update_from_dist_<'a>(
                 Cases::CF => return Ok(None),
                 Cases::DNE => {
                     // Proceed to try v1 as a fallback
-                    (download.notify_handler)(Notification::DownloadingLegacyManifest);
+                    (notify_handler)(Notification::DownloadingLegacyManifest);
                 }
                 Cases::Other => return Err(any),
             }
@@ -963,7 +969,7 @@ fn try_update_from_dist_<'a>(
     }
 
     // If the v2 manifest is not found then try v1
-    let manifest = match dl_v1_manifest(download, toolchain) {
+    let manifest = match dl_v1_manifest(download, toolchain, notify_handler) {
         Ok(m) => m,
         Err(any) => {
             enum Cases {
@@ -998,7 +1004,7 @@ fn try_update_from_dist_<'a>(
         &manifest,
         update_hash,
         download.temp_cfg,
-        &download.notify_handler,
+        &notify_handler,
         download.pgp_keys,
     );
     // inspect, determine what context to add, then process afterwards.
@@ -1027,9 +1033,10 @@ pub(crate) fn dl_v2_manifest<'a>(
     download: DownloadCfg<'a>,
     update_hash: Option<&Path>,
     toolchain: &ToolchainDesc,
+    notify_handler: &dyn Fn(Notification<'_>),
 ) -> Result<Option<(ManifestV2, String)>> {
     let manifest_url = toolchain.manifest_v2_url(download.dist_root);
-    match download.download_and_check(&manifest_url, update_hash, ".toml") {
+    match download.download_and_check(&manifest_url, update_hash, ".toml", notify_handler) {
         Ok(manifest_dl) => {
             // Downloaded ok!
             let (manifest_file, manifest_hash) = if let Some(m) = manifest_dl {
@@ -1045,14 +1052,18 @@ pub(crate) fn dl_v2_manifest<'a>(
         Err(any) => {
             if let Some(RustupError::ChecksumFailed { .. }) = any.downcast_ref::<RustupError>() {
                 // Checksum failed - issue warning to try again later
-                (download.notify_handler)(Notification::ManifestChecksumFailedHack);
+                (notify_handler)(Notification::ManifestChecksumFailedHack);
             }
             Err(any)
         }
     }
 }
 
-fn dl_v1_manifest(download: DownloadCfg<'_>, toolchain: &ToolchainDesc) -> Result<Vec<String>> {
+fn dl_v1_manifest(
+    download: DownloadCfg<'_>,
+    toolchain: &ToolchainDesc,
+    notify_handler: &dyn Fn(Notification<'_>),
+) -> Result<Vec<String>> {
     let root_url = toolchain.package_dir(download.dist_root);
 
     if !["nightly", "beta", "stable"].contains(&&*toolchain.channel) {
@@ -1066,7 +1077,7 @@ fn dl_v1_manifest(download: DownloadCfg<'_>, toolchain: &ToolchainDesc) -> Resul
     }
 
     let manifest_url = toolchain.manifest_v1_url(download.dist_root);
-    let manifest_dl = download.download_and_check(&manifest_url, None, "")?;
+    let manifest_dl = download.download_and_check(&manifest_url, None, "", notify_handler)?;
     let (manifest_file, _) = manifest_dl.unwrap();
     let manifest_str = utils::read_file("manifest", &manifest_file)?;
     let urls = manifest_str

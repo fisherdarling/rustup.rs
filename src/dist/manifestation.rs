@@ -172,7 +172,7 @@ impl Manifestation {
             let url_url = utils::parse_url(&url)?;
 
             let downloaded_file = retry(NoDelay.take(max_retries), || {
-                match download_cfg.download(&url_url, &hash) {
+                match download_cfg.download(&url_url, &hash, notify_handler) {
                     Ok(f) => OperationResult::Ok(f),
                     Err(e) => {
                         match e.downcast_ref::<RustupError>() {
@@ -413,11 +413,10 @@ impl Manifestation {
             dist_root: "bogus",
             download_dir: &dld_dir,
             temp_cfg,
-            notify_handler,
             pgp_keys,
         };
 
-        let dl = dlcfg.download_and_check(&url, update_hash, ".tar.gz")?;
+        let dl = dlcfg.download_and_check(&url, update_hash, ".tar.gz", notify_handler)?;
         if dl.is_none() {
             return Ok(None);
         };
